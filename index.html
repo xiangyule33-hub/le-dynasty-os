@@ -140,9 +140,10 @@
       .shell { display: block; }
       .sidebar { display: none; }
       .topbar { height: 62px; padding: 0 14px; }
+      .topbar { justify-content: flex-end; }
       .top-actions { flex: 0 0 auto; }
       .top-actions .btn { padding-inline: 11px; }
-      .greeting span, .desktop-only { display: none; }
+      .greeting, .desktop-only { display: none; }
       .content { padding: 14px 12px 84px; }
       .overview { grid-template-columns: 1fr; }
       .risk-panel { grid-column: auto; }
@@ -178,6 +179,7 @@
         <div class="top-actions">
           <button class="icon-btn" id="refreshBtn" title="刷新数据" aria-label="刷新数据">↻</button>
           <a class="btn desktop-only" href="https://github.com/xiangyule33-hub/le-dynasty-os#governance-model" target="_blank">治理模型</a>
+          <button class="btn" id="runDemoBtn">运行 PPT Demo</button>
           <button class="btn primary" id="newTaskBtn">＋ 新建任务</button>
         </div>
       </header>
@@ -269,6 +271,21 @@
     const fmtDate = value => value ? new Intl.DateTimeFormat('zh-CN', {month:'numeric', day:'numeric'}).format(new Date(value)) : '—';
     const statusName = { pending:'待执行', in_progress:'执行中', completed:'已完成', blocked:'已阻塞' };
 
+    async function waitForRunCompletion(button) {
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const runs = await getJSON('/api/workflows');
+        const latest = runs[0];
+        if (latest && ['completed', 'blocked'].includes(latest.status)) {
+          await load();
+          button.disabled = false;
+          button.textContent = latest.status === 'completed' ? '重新运行 Demo' : 'Demo 已阻塞';
+          return latest;
+        }
+      }
+      throw new Error('Workflow completion timed out.');
+    }
+
     async function getJSON(url, options) {
       const response = await fetch(url, options);
       if (!response.ok) throw new Error(`${url} (${response.status})`);
@@ -298,22 +315,22 @@
       $('risks').innerHTML = decisions.length ? decisions.map(task => `
         <div class="risk"><span class="risk-dot"></span><span title="${esc(clean(task.title))}">${esc(clean(task.title))}</span><span class="tag">需处理</span></div>`).join('') : '<div class="empty">系统暂无阻塞</div>';
 
-      const working = state.tasks.filter(t => t.status !== 'completed').slice(0,7);
+      const working = state.tasks.slice(0,7);
       $('taskRows').innerHTML = working.length ? working.map(task => `
         <tr><td><span class="task-name" title="${esc(clean(task.title))}">${esc(clean(task.title))}</span></td><td>${esc(task.assigneeName || '待分派')}</td><td>${esc(task.priority || '—')}</td><td><span class="status ${esc(task.status)}">${esc(statusName[task.status] || task.status)}</span></td><td>${fmtDate(task.lastExecuted || task.createdAt)}</td></tr>`).join('') : '<tr><td colspan="5" class="empty">暂无进行中的任务</td></tr>';
 
       const latest = [...state.deliverables].sort((a,b) => new Date(b.created)-new Date(a.created)).slice(0,6);
       $('deliverableList').innerHTML = latest.length ? latest.map(file => `
-        <div class="deliverable"><span class="file-icon">文</span><div><strong title="${esc(file.title)}">${esc(file.title)}</strong><span>${esc(file.path)} · ${fmtDate(file.created)}</span></div><a href="${state.demo ? esc(file.path) : `/api/deliverables/${encodeURIComponent(file.filename)}`}" target="_blank">查看</a></div>`).join('') : '<div class="empty">暂无交付成果</div>';
+        <div class="deliverable"><span class="file-icon">文</span><div><strong title="${esc(file.title)}">${esc(file.title)}</strong><span>${esc(file.path)} · ${fmtDate(file.created)}</span></div><a href="${state.demo ? esc(file.path) : `/deliverables/${encodeURIComponent(file.filename)}`}" target="_blank">查看</a></div>`).join('') : '<div class="empty">暂无交付成果</div>';
 
-      const steps = [
-        ['需求与简报', state.tasks.length, '任务'],
-        ['策略与规划', pending.length, '待分派'],
-        ['执行与落地', state.tasks.filter(t => t.status === 'in_progress').length, '执行中'],
-        ['审核与校验', blocked.length, '需复核'],
-        ['交付与沉淀', state.deliverables.length, '成果']
+      const roleSteps = [
+        ['决策框架', 1, '策'], ['情报研究', 2, '研'], ['产品建议', 3, '产'], ['独立审计', 4, '审'], ['最终交付', 5, '成']
       ];
-      $('flowSteps').innerHTML = steps.map((step,index) => `<div class="flow-step ${index < 2 || step[1] > 0 ? 'done' : ''}"><div class="flow-icon">${['书','策','行','审','成'][index]}</div><strong>${step[0]}</strong><span>${step[1]} ${step[2]}</span></div>`).join('');
+      $('flowSteps').innerHTML = roleSteps.map(([label, assignee, icon]) => {
+        const task = state.tasks.find(item => item.assignee === assignee);
+        const status = task ? (statusName[task.status] || task.status) : '待启动';
+        return `<div class="flow-step ${task?.status === 'completed' ? 'done' : ''}"><div class="flow-icon">${icon}</div><strong>${label}</strong><span>${status}</span></div>`;
+      }).join('');
 
       $('taskAgent').innerHTML = state.agents.map(agent => `<option value="${agent.id}">${esc(agent.name)} · ${esc(agent.title)}</option>`).join('');
     }
@@ -344,6 +361,28 @@
 
     $('todayLabel').textContent = new Intl.DateTimeFormat('zh-CN', {year:'numeric', month:'long', day:'numeric', weekday:'long'}).format(new Date());
     $('refreshBtn').addEventListener('click', load);
+    $('runDemoBtn').addEventListener('click', async () => {
+      if (state.demo) {
+        alert('请运行 node server.js 后再启动真实治理 Demo。');
+        return;
+      }
+      const button = $('runDemoBtn');
+      button.disabled = true;
+      button.textContent = '协作执行中...';
+      try {
+        await getJSON('/api/workflows/demo', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({objective:'分析三个 AI PPT 产品方向，比较优缺点，并生成一份可审核的产品决策报告。'})
+        });
+        await load();
+        await waitForRunCompletion(button);
+      } catch (error) {
+        alert(`Demo 启动失败：${error.message}`);
+        button.disabled = false;
+        button.textContent = '运行 PPT Demo';
+      }
+    });
     $('newTaskBtn').addEventListener('click', () => $('taskModal').classList.add('open'));
     $('cancelTaskBtn').addEventListener('click', () => $('taskModal').classList.remove('open'));
     $('taskModal').addEventListener('click', event => { if (event.target === $('taskModal')) $('taskModal').classList.remove('open'); });
@@ -367,10 +406,19 @@
     });
 
     if (location.protocol !== 'file:') try {
-      const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`);
-      socket.addEventListener('open', () => $('connectionLabel').textContent = '系统在线 · 实时同步');
-      socket.addEventListener('message', event => { try { const message = JSON.parse(event.data); if (message.event?.startsWith('task_')) load(); } catch {} });
-      socket.addEventListener('close', () => $('connectionLabel').textContent = '实时连接已断开');
+      const events = new EventSource('/api/events');
+      events.addEventListener('open', () => $('connectionLabel').textContent = '系统在线 · 实时同步');
+      events.addEventListener('message', event => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.event?.startsWith('task_') || message.event?.startsWith('run_')) load();
+          if (message.event === 'run_completed' || message.event === 'run_blocked') {
+            $('runDemoBtn').disabled = false;
+            $('runDemoBtn').textContent = '重新运行 Demo';
+          }
+        } catch {}
+      });
+      events.addEventListener('error', () => $('connectionLabel').textContent = '实时连接已断开');
     } catch {}
     load();
   </script>

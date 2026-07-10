@@ -218,7 +218,15 @@ The current public interface includes:
 - standalone demo mode
 - functional task creation in both modes
 - local persistence for demo-created tasks
-- real-time task refresh through WebSocket events
+- real-time task refresh through server-sent events
+
+### A complete governance run
+
+The included PPT product demo executes five accountable stages, records one independent rejection, performs one controlled rework, approves the revision, and writes the final report to disk.
+
+![Completed five-role governance run](assets/governance-run.png)
+
+The screenshot is generated from the running local server after the workflow completes. It is not a static mock-data composition.
 
 ## System Architecture
 
@@ -260,7 +268,7 @@ POST /api/tasks          Create and assign a task
 GET  /api/agents         List agents and governance state
 GET  /api/deliverables   List reviewable output artifacts
 GET  /api/token-usage    Return model calls, tokens, and cost
-WS   /                   Broadcast task lifecycle events
+GET  /api/events         Stream task lifecycle events with SSE
 ```
 
 Example task shape:
@@ -280,7 +288,32 @@ Example task shape:
 
 ## Quick Start
 
-The public dashboard has no build step and no frontend dependencies.
+The public runtime requires Node.js 18 or newer. It has no third-party packages, no install step, and no frontend build step.
+
+```bash
+git clone https://github.com/xiangyule33-hub/le-dynasty-os.git
+cd le-dynasty-os
+npm start
+```
+
+Open:
+
+```text
+http://127.0.0.1:3456
+```
+
+Select **Run PPT Demo**. The offline governance engine will execute all five roles, reject the first recommendation once, revise it, approve it, and save the final Markdown report under `deliverables/`.
+
+### Optional DeepSeek mode
+
+The complete workflow runs without an API key. To replace deterministic role outputs with live model calls:
+
+```powershell
+$env:DEEPSEEK_API_KEY="your_key_here"
+npm start
+```
+
+The key is read from the environment and is never written to the project. Model calls and token usage are exposed through `/api/token-usage`.
 
 ### Standalone demo
 
@@ -296,7 +329,7 @@ Serve `index.html` from the same origin as a compatible backend:
 http://localhost:3456/index.html
 ```
 
-The dashboard will request the API contract above and subscribe to task events over WebSocket.
+The dashboard will request the API contract above and subscribe to task events over server-sent events.
 
 ## Example Use Cases
 
