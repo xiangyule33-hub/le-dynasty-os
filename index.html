@@ -157,12 +157,96 @@
       .mobile-nav a { display: grid; place-items: center; align-content: center; gap: 4px; color: var(--muted); text-decoration: none; font-size: 11px; }
       .mobile-nav a.active { color: var(--jade); }
     }
+    /* Founder-grade visual layer */
+    :root {
+      --paper: #eef0ed;
+      --surface: #ffffff;
+      --surface-2: #f3f5f2;
+      --ink: #17201c;
+      --muted: #68716b;
+      --line: #d8ddd8;
+      --jade: #116149;
+      --jade-soft: #e5f0eb;
+      --cinnabar: #b83d34;
+      --cinnabar-soft: #f8e9e7;
+      --amber: #9b6a24;
+      --amber-soft: #f5eddf;
+      --sidebar: 232px;
+    }
+    body { background: var(--paper); }
+    .sidebar {
+      color: #e7ebe8;
+      border-right-color: #26322e;
+      background: #17201d;
+      box-shadow: 8px 0 28px rgba(19, 29, 25, .08);
+    }
+    .brand { position: relative; min-height: 88px; padding: 2px 8px 22px 58px; border-bottom-color: #35403c; }
+    .brand-seal {
+      position: absolute; left: 8px; top: 0; width: 38px; height: 38px;
+      display: grid; place-items: center; border: 1px solid #b39158; color: #d7bd88;
+      font-family: "STSong", "SimSun", serif; font-size: 20px; line-height: 1;
+    }
+    .brand strong { color: #f5f3ec; font-size: 24px; line-height: 1.2; }
+    .brand span { color: #9ca6a0; font-size: 10px; font-weight: 700; letter-spacing: 1.4px; }
+    .nav { gap: 6px; }
+    .nav a { min-height: 44px; color: #bdc5c0; border-left-width: 3px; }
+    .nav a:hover { color: white; background: #202b27; }
+    .nav a.active { color: #f5f7f5; background: #174f3f; border-left-color: #58a786; }
+    .nav-icon { color: #b9c6c0; font-family: Georgia, serif; }
+    .sidebar-foot { color: #929e98; border-top-color: #35403c; }
+    .topbar { height: 78px; border-bottom-color: var(--line); background: rgba(255,255,255,.96); }
+    .greeting strong { font-family: "STSong", "SimSun", serif; font-size: 21px; font-weight: 700; }
+    .greeting span { margin-top: 6px; }
+    .icon-btn, .btn { min-height: 40px; border-radius: 4px; background: #fff; box-shadow: 0 1px 1px rgba(23,32,28,.03); }
+    .btn.primary { box-shadow: 0 5px 14px rgba(17,97,73,.14); }
+    .content { padding-top: 26px; }
+    .panel { border-color: var(--line); border-radius: 5px; box-shadow: 0 1px 2px rgba(23,32,28,.035); }
+    .panel-head { min-height: 54px; padding-inline: 18px; background: #fcfdfc; }
+    .panel-head h3 { font-family: "STSong", "SimSun", serif; font-size: 16px; }
+    .panel-head small { font-size: 11px; }
+    .decision-list { padding-inline: 18px; }
+    .decision { min-height: 68px; }
+    .decision-index { background: var(--cinnabar); box-shadow: 0 3px 8px rgba(184,61,52,.14); }
+    .metric { min-height: 86px; padding: 17px; }
+    .metric strong { margin-top: 9px; font-size: 29px; line-height: 1; }
+    .metric:nth-child(3) strong { color: var(--jade); }
+    .risk-panel .empty::before, .decision-list > .empty::before {
+      content: "✓"; display: block; width: 34px; height: 34px; margin: 0 auto 10px;
+      border: 1px solid #c6d1cb; color: #8b9b93; font-size: 18px; line-height: 32px;
+    }
+    .flow-panel { padding-bottom: 22px; }
+    .flow { padding: 26px 28px 6px; }
+    .flow-step:not(:last-child)::after { top: 21px; height: 2px; background: #d2d8d4; }
+    .flow-step.done:not(:last-child)::after { background: #7fae9b; }
+    .flow-icon {
+      width: 44px; height: 44px; margin-bottom: 12px; border-radius: 50%;
+      color: #77827c; font-family: "STSong", "SimSun", serif; font-size: 18px;
+    }
+    .flow-step.done .flow-icon { border-color: #4c8d72; box-shadow: 0 0 0 4px #edf4f0; }
+    .flow-step strong { font-size: 12px; }
+    .flow-step span { margin-top: 7px; }
+    th { height: 38px; background: #fafbf9; font-weight: 700; }
+    td { height: 53px; }
+    tbody tr:hover { background: #f8faf8; }
+    .status::before { box-shadow: 0 0 0 3px #e7f1ec; }
+    .file-icon { width: 32px; height: 38px; border-color: #b8cdc3; }
+    .deliverable { min-height: 68px; }
+    .deliverable a { font-weight: 700; }
+    .mobile-nav { box-shadow: 0 -6px 24px rgba(23,32,28,.08); }
+    @media (max-width: 760px) {
+      .topbar { height: 66px; background: #fff; }
+      .top-actions { width: 100%; display: grid; grid-template-columns: 40px 1fr 1fr; }
+      .top-actions .btn { min-width: 0; padding-inline: 8px; overflow: hidden; text-overflow: ellipsis; }
+      .content { padding-top: 12px; }
+      .panel-head { min-height: 50px; }
+      .flow { padding-top: 22px; }
+    }
   </style>
 </head>
 <body>
   <div class="shell">
     <aside class="sidebar">
-      <div class="brand"><strong>乐的王朝</strong><span>AI COMPANY OS</span></div>
+      <div class="brand"><span class="brand-seal" aria-hidden="true">乐</span><strong>乐的王朝</strong><span>AI COMPANY OS</span></div>
       <nav class="nav" aria-label="主导航">
         <a class="active" href="dynasty-os.html"><span class="nav-icon">⌂</span>总览</a>
         <a href="#flow"><span class="nav-icon">⌁</span>协作链</a>
