@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>乐的王朝 · AI 公司操作系统</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --paper: #f5f3ed;
+      --surface: #fbfaf6;
+      --surface-2: #efede6;
+      --ink: #1f2521;
+      --muted: #6f746e;
+      --line: #d8d5cc;
+      --jade: #176b52;
+      --jade-soft: #e4eee9;
+      --cinnabar: #b64338;
+      --cinnabar-soft: #f5e5e2;
+      --amber: #a46b1e;
+      --amber-soft: #f3ead8;
+      --sidebar: 224px;
+      font-family: "Microsoft YaHei UI", "PingFang SC", sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; background: var(--paper); }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .shell { min-height: 100vh; display: grid; grid-template-columns: var(--sidebar) 1fr; }
+    .sidebar {
+      position: sticky; top: 0; height: 100vh; padding: 24px 16px 18px;
+      border-right: 1px solid var(--line); background: rgba(251,250,246,.96);
+      display: flex; flex-direction: column;
+    }
+    .brand { padding: 0 10px 24px; border-bottom: 1px solid var(--line); }
+    .brand strong { display: block; font-family: "STSong", "SimSun", serif; font-size: 25px; letter-spacing: 0; }
+    .brand span { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
+    .nav { display: grid; gap: 4px; padding-top: 18px; }
+    .nav a {
+      display: flex; align-items: center; gap: 12px; min-height: 42px; padding: 0 12px;
+      color: #535953; text-decoration: none; border-left: 2px solid transparent;
+    }
+    .nav a:hover { background: var(--surface-2); color: var(--ink); }
+    .nav a.active { color: var(--jade); background: var(--jade-soft); border-left-color: var(--jade); font-weight: 700; }
+    .nav-icon { width: 20px; text-align: center; font-size: 16px; }
+    .sidebar-foot { margin-top: auto; padding: 16px 10px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.7; }
+    .live-dot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--jade); }
+    .main { min-width: 0; }
+    .topbar {
+      height: 72px; padding: 0 28px; border-bottom: 1px solid var(--line); background: rgba(245,243,237,.94);
+      display: flex; align-items: center; justify-content: space-between; gap: 18px; position: sticky; top: 0; z-index: 10;
+    }
+    .greeting strong { display: block; font-size: 16px; }
+    .greeting span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .icon-btn, .btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); min-height: 38px; }
+    .icon-btn { width: 38px; padding: 0; font-size: 17px; }
+    .btn { padding: 0 14px; font-weight: 700; white-space: nowrap; }
+    .btn:hover, .icon-btn:hover { border-color: #a8aca6; }
+    .btn.primary { color: white; background: var(--jade); border-color: var(--jade); }
+    .content { max-width: 1500px; margin: 0 auto; padding: 24px 28px 40px; }
+    .section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .section-title h2 { margin: 0; font-family: "STSong", "SimSun", serif; font-size: 21px; letter-spacing: 0; }
+    .section-title span { color: var(--muted); font-size: 12px; }
+    .overview { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(290px, .8fr) minmax(270px, .7fr); gap: 12px; }
+    .panel { min-width: 0; overflow: hidden; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; }
+    .panel-head { min-height: 50px; padding: 0 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
+    .panel-head h3 { margin: 0; font-size: 15px; }
+    .panel-head small { color: var(--muted); }
+    .decision-list { padding: 4px 16px 10px; }
+    .decision { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: center; min-height: 65px; border-bottom: 1px solid #e5e2da; }
+    .decision > div { min-width: 0; }
+    .decision:last-child { border-bottom: 0; }
+    .decision-index { width: 26px; height: 26px; display: grid; place-items: center; color: white; background: var(--cinnabar); border-radius: 4px; font-weight: 800; font-size: 12px; }
+    .decision strong, .task-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .decision p { margin: 5px 0 0; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .decision-meta { text-align: right; font-size: 12px; color: var(--cinnabar); }
+    .metric-grid { display: grid; grid-template-columns: 1fr 1fr; }
+    .metric { min-height: 83px; padding: 15px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .metric:nth-child(2n) { border-right: 0; }
+    .metric:nth-last-child(-n+2) { border-bottom: 0; }
+    .metric span { color: var(--muted); font-size: 12px; }
+    .metric strong { display: block; margin-top: 7px; font-family: Georgia, serif; font-size: 25px; font-weight: 500; }
+    .metric.danger strong { color: var(--cinnabar); }
+    .risk-list { padding: 8px 16px; }
+    .risk { display: grid; grid-template-columns: 9px 1fr auto; gap: 9px; align-items: center; min-height: 45px; border-bottom: 1px solid #e5e2da; font-size: 12px; }
+    .risk > span:nth-child(2) { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .risk:last-child { border-bottom: 0; }
+    .risk-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cinnabar); }
+    .tag { padding: 3px 6px; border: 1px solid #e4b5ad; color: var(--cinnabar); background: var(--cinnabar-soft); border-radius: 3px; font-size: 11px; }
+    .flow-panel { margin-top: 12px; padding-bottom: 18px; }
+    .flow { display: grid; grid-template-columns: repeat(5, 1fr); padding: 22px 22px 4px; }
+    .flow-step { position: relative; min-width: 0; text-align: center; }
+    .flow-step:not(:last-child)::after { content: ""; position: absolute; top: 18px; left: 58%; width: 84%; height: 1px; background: #aeb2ac; }
+    .flow-step.done:not(:last-child)::after { background: var(--jade); }
+    .flow-icon { position: relative; z-index: 1; width: 38px; height: 38px; margin: 0 auto 10px; border: 1px solid #aeb2ac; background: var(--surface); display: grid; place-items: center; border-radius: 5px; }
+    .flow-step.done .flow-icon { color: var(--jade); border-color: var(--jade); background: var(--jade-soft); }
+    .flow-step strong { display: block; font-size: 13px; }
+    .flow-step span { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; }
+    .work-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr); gap: 12px; margin-top: 12px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th { padding: 10px 14px; color: var(--muted); font-size: 11px; text-align: left; font-weight: 600; border-bottom: 1px solid var(--line); }
+    td { height: 49px; padding: 8px 14px; border-bottom: 1px solid #e5e2da; font-size: 12px; vertical-align: middle; }
+    tr:last-child td { border-bottom: 0; }
+    .status { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--jade); }
+    .status.blocked { color: var(--cinnabar); }
+    .status.blocked::before { background: var(--cinnabar); }
+    .status.pending { color: var(--amber); }
+    .status.pending::before { background: var(--amber); }
+    .deliverables { padding: 4px 16px 10px; }
+    .deliverable { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; min-height: 61px; border-bottom: 1px solid #e5e2da; }
+    .deliverable > div { min-width: 0; }
+    .deliverable:last-child { border-bottom: 0; }
+    .file-icon { width: 30px; height: 34px; display: grid; place-items: center; border: 1px solid var(--line); color: var(--jade); background: var(--jade-soft); border-radius: 4px; }
+    .deliverable strong { display: block; font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .deliverable span { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; }
+    .deliverable a { color: var(--jade); text-decoration: none; font-size: 12px; }
+    .empty, .error { padding: 24px; color: var(--muted); text-align: center; font-size: 13px; }
+    .error { color: var(--cinnabar); }
+    .modal-backdrop { position: fixed; inset: 0; z-index: 30; display: none; place-items: center; padding: 20px; background: rgba(31,37,33,.38); }
+    .modal-backdrop.open { display: grid; }
+    .modal { width: min(520px, 100%); padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 24px 70px rgba(31,37,33,.2); }
+    .modal h2 { margin: 0 0 18px; font-size: 19px; }
+    .field { display: grid; gap: 7px; margin-bottom: 14px; }
+    .field label { font-size: 12px; color: var(--muted); }
+    .field input, .field select { width: 100%; height: 42px; padding: 0 11px; border: 1px solid var(--line); background: white; border-radius: 4px; color: var(--ink); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+    .mobile-nav { display: none; }
+    @media (max-width: 1100px) {
+      .overview { grid-template-columns: 1.2fr .8fr; }
+      .risk-panel { grid-column: 1 / -1; }
+      .risk-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 14px; }
+      .work-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 760px) {
+      .shell { display: block; }
+      .sidebar { display: none; }
+      .topbar { height: 62px; padding: 0 14px; }
+      .top-actions { flex: 0 0 auto; }
+      .top-actions .btn { padding-inline: 11px; }
+      .greeting span, .desktop-only { display: none; }
+      .content { padding: 14px 12px 84px; }
+      .overview { grid-template-columns: 1fr; }
+      .risk-panel { grid-column: auto; }
+      .risk-list { display: block; }
+      .flow { overflow-x: auto; grid-template-columns: repeat(5, 120px); padding-inline: 14px; }
+      .flow-step:not(:last-child)::after { width: 82px; }
+      .metric { min-height: 74px; }
+      .metric strong { font-size: 21px; }
+      table { min-width: 640px; }
+      .mobile-nav { position: fixed; z-index: 20; left: 0; right: 0; bottom: 0; height: 68px; padding-bottom: env(safe-area-inset-bottom); display: grid; grid-template-columns: repeat(4,1fr); background: var(--surface); border-top: 1px solid var(--line); }
+      .mobile-nav a { display: grid; place-items: center; align-content: center; gap: 4px; color: var(--muted); text-decoration: none; font-size: 11px; }
+      .mobile-nav a.active { color: var(--jade); }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><strong>乐的王朝</strong><span>AI COMPANY OS</span></div>
+      <nav class="nav" aria-label="主导航">
+        <a class="active" href="dynasty-os.html"><span class="nav-icon">⌂</span>总览</a>
+        <a href="#flow"><span class="nav-icon">⌁</span>协作链</a>
+        <a href="#tasks"><span class="nav-icon">▤</span>任务与项目</a>
+        <a href="https://github.com/xiangyule33-hub/le-dynasty-os#governance-model" target="_blank"><span class="nav-icon">群</span>组织与治理</a>
+        <a href="#deliverables"><span class="nav-icon">✓</span>交付成果</a>
+      </nav>
+      <div class="sidebar-foot"><span class="live-dot"></span><span id="connectionLabel">正在连接朝堂</span><br>数据来自本地运行系统</div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="greeting"><strong>乐总，今日先处理关键决策</strong><span id="todayLabel"></span></div>
+        <div class="top-actions">
+          <button class="icon-btn" id="refreshBtn" title="刷新数据" aria-label="刷新数据">↻</button>
+          <a class="btn desktop-only" href="https://github.com/xiangyule33-hub/le-dynasty-os#governance-model" target="_blank">治理模型</a>
+          <button class="btn primary" id="newTaskBtn">＋ 新建任务</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="overview">
+          <div class="panel">
+            <div class="panel-head"><h3>今日决策</h3><small>按阻塞时间与优先级排序</small></div>
+            <div class="decision-list" id="decisions"><div class="empty">正在整理奏报...</div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>运营摘要</h3><small>实时</small></div>
+            <div class="metric-grid">
+              <div class="metric"><span>任务总数</span><strong id="metricTotal">—</strong></div>
+              <div class="metric"><span>AI 员工</span><strong id="metricAgents">—</strong></div>
+              <div class="metric"><span>已经完成</span><strong id="metricDone">—</strong></div>
+              <div class="metric danger"><span>风险阻塞</span><strong id="metricBlocked">—</strong></div>
+            </div>
+          </div>
+          <div class="panel risk-panel">
+            <div class="panel-head"><h3>风险与阻塞</h3><small id="riskCount">—</small></div>
+            <div class="risk-list" id="risks"><div class="empty">正在检查...</div></div>
+          </div>
+        </section>
+
+        <section class="panel flow-panel" id="flow">
+          <div class="panel-head"><h3>AI 协作链</h3><small>每个角色只做自己擅长的部分</small></div>
+          <div class="flow" id="flowSteps"></div>
+        </section>
+
+        <section class="work-grid">
+          <div class="panel" id="tasks">
+            <div class="panel-head"><h3>当前任务</h3><small id="taskSummary">—</small></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th style="width:38%">任务</th><th>负责人</th><th>优先级</th><th>状态</th><th>更新时间</th></tr></thead>
+                <tbody id="taskRows"><tr><td colspan="5" class="empty">正在加载任务...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel" id="deliverables">
+            <div class="panel-head"><h3>最新交付成果</h3><small id="deliverableCount">—</small></div>
+            <div class="deliverables" id="deliverableList"><div class="empty">正在读取交付物...</div></div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <nav class="mobile-nav" aria-label="移动导航">
+    <a class="active" href="#"><span>⌂</span>总览</a><a href="#flow"><span>⌁</span>协作</a><a href="#tasks"><span>▤</span>任务</a><a href="#deliverables"><span>✓</span>交付</a>
+  </nav>
+
+  <div class="modal-backdrop" id="taskModal">
+    <form class="modal" id="taskForm">
+      <h2>下达新任务</h2>
+      <div class="field"><label for="taskTitle">任务名称</label><input id="taskTitle" required maxlength="80" placeholder="说清楚最终要交付什么"></div>
+      <div class="field"><label for="taskAgent">负责人</label><select id="taskAgent" required></select></div>
+      <div class="field"><label for="taskPriority">优先级</label><select id="taskPriority"><option>P1</option><option selected>P2</option><option>P3</option></select></div>
+      <div class="modal-actions"><button class="btn" type="button" id="cancelTaskBtn">取消</button><button class="btn primary" type="submit">确认下达</button></div>
+    </form>
+  </div>
+
+  <script>
+    const state = { tasks: [], agents: [], deliverables: [], token: null, demo: false };
+    const demoData = {
+      tasks: [
+        {id:'D-001', title:'确认首个公开版本的核心用户', description:'在独立开发者与内容团队之间选择首批验证对象', priority:'P1', status:'blocked', assignee:31, assigneeName:'产品策略', createdAt:'2026-07-10'},
+        {id:'D-002', title:'完成任务协作链的状态定义', description:'统一待审批、执行中、待验收、退回和完成', priority:'P1', status:'pending', assignee:14, assigneeName:'技术架构', createdAt:'2026-07-10'},
+        {id:'D-003', title:'设计公开版首页', description:'让用户第一眼看到决策、进度和交付成果', priority:'P2', status:'completed', assignee:48, assigneeName:'视觉设计', createdAt:'2026-07-09'},
+        {id:'D-004', title:'检查公开仓库的密钥与隐私风险', description:'排除 API 配置、日志、员工记忆和客户文件', priority:'P1', status:'completed', assignee:5, assigneeName:'安全审计', createdAt:'2026-07-09'},
+        {id:'D-005', title:'编写组织治理模型说明', description:'解释角色分工、权限、制衡和验收机制', priority:'P2', status:'pending', assignee:20, assigneeName:'AI 协作', createdAt:'2026-07-08'}
+      ],
+      agents: Array.from({length:12}, (_,index) => ({id:index+1, name:`AI ${index+1}`, title:['决策','调度','产品','技术','设计','数据','财务','审计','安全','内容','交付','记忆'][index]})),
+      deliverables: [
+        {filename:'dashboard.png', title:'AI 公司管理首页', path:'assets/dashboard.png', created:'2026-07-11'},
+        {filename:'README.md', title:'项目定位与治理模型', path:'README.md', created:'2026-07-11'},
+        {filename:'index.html', title:'可运行的公开版工作台', path:'index.html', created:'2026-07-11'}
+      ],
+      token: {total:{calls:0}}
+    };
+    const $ = id => document.getElementById(id);
+    const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+    const clean = value => {
+      const text = String(value ?? '');
+      const broken = (text.match(/�/g) || []).length + (text.match(/\?\?\?/g) || []).length;
+      return broken > 2 ? '历史数据编码异常（需检查源数据）' : text;
+    };
+    const fmtDate = value => value ? new Intl.DateTimeFormat('zh-CN', {month:'numeric', day:'numeric'}).format(new Date(value)) : '—';
+    const statusName = { pending:'待执行', in_progress:'执行中', completed:'已完成', blocked:'已阻塞' };
+
+    async function getJSON(url, options) {
+      const response = await fetch(url, options);
+      if (!response.ok) throw new Error(`${url} (${response.status})`);
+      return response.json();
+    }
+
+    function render() {
+      const blocked = state.tasks.filter(t => t.status === 'blocked');
+      const pending = state.tasks.filter(t => t.status === 'pending');
+      const completed = state.tasks.filter(t => t.status === 'completed');
+      $('metricTotal').textContent = state.tasks.length;
+      $('metricAgents').textContent = state.agents.length;
+      $('metricDone').textContent = completed.length;
+      $('metricBlocked').textContent = blocked.length;
+      $('riskCount').textContent = `${blocked.length} 项`;
+      $('taskSummary').textContent = `${pending.length} 待执行 · ${blocked.length} 阻塞`;
+      $('deliverableCount').textContent = `${state.deliverables.length} 件`;
+
+      const decisions = [...blocked].sort((a,b) => (a.priority||'P9').localeCompare(b.priority||'P9') || new Date(a.createdAt)-new Date(b.createdAt)).slice(0,3);
+      $('decisions').innerHTML = decisions.length ? decisions.map((task, index) => `
+        <div class="decision">
+          <span class="decision-index">${index + 1}</span>
+          <div><strong title="${esc(clean(task.title))}">${esc(clean(task.title))}</strong><p>${esc(clean(task.description || '需要确认下一步处理方式'))}</p></div>
+          <div class="decision-meta">${esc(task.priority || 'P2')}<br>${esc(task.assigneeName || '待分派')}</div>
+        </div>`).join('') : '<div class="empty">今天没有需要裁决的阻塞任务</div>';
+
+      $('risks').innerHTML = decisions.length ? decisions.map(task => `
+        <div class="risk"><span class="risk-dot"></span><span title="${esc(clean(task.title))}">${esc(clean(task.title))}</span><span class="tag">需处理</span></div>`).join('') : '<div class="empty">系统暂无阻塞</div>';
+
+      const working = state.tasks.filter(t => t.status !== 'completed').slice(0,7);
+      $('taskRows').innerHTML = working.length ? working.map(task => `
+        <tr><td><span class="task-name" title="${esc(clean(task.title))}">${esc(clean(task.title))}</span></td><td>${esc(task.assigneeName || '待分派')}</td><td>${esc(task.priority || '—')}</td><td><span class="status ${esc(task.status)}">${esc(statusName[task.status] || task.status)}</span></td><td>${fmtDate(task.lastExecuted || task.createdAt)}</td></tr>`).join('') : '<tr><td colspan="5" class="empty">暂无进行中的任务</td></tr>';
+
+      const latest = [...state.deliverables].sort((a,b) => new Date(b.created)-new Date(a.created)).slice(0,6);
+      $('deliverableList').innerHTML = latest.length ? latest.map(file => `
+        <div class="deliverable"><span class="file-icon">文</span><div><strong title="${esc(file.title)}">${esc(file.title)}</strong><span>${esc(file.path)} · ${fmtDate(file.created)}</span></div><a href="${state.demo ? esc(file.path) : `/api/deliverables/${encodeURIComponent(file.filename)}`}" target="_blank">查看</a></div>`).join('') : '<div class="empty">暂无交付成果</div>';
+
+      const steps = [
+        ['需求与简报', state.tasks.length, '任务'],
+        ['策略与规划', pending.length, '待分派'],
+        ['执行与落地', state.tasks.filter(t => t.status === 'in_progress').length, '执行中'],
+        ['审核与校验', blocked.length, '需复核'],
+        ['交付与沉淀', state.deliverables.length, '成果']
+      ];
+      $('flowSteps').innerHTML = steps.map((step,index) => `<div class="flow-step ${index < 2 || step[1] > 0 ? 'done' : ''}"><div class="flow-icon">${['书','策','行','审','成'][index]}</div><strong>${step[0]}</strong><span>${step[1]} ${step[2]}</span></div>`).join('');
+
+      $('taskAgent').innerHTML = state.agents.map(agent => `<option value="${agent.id}">${esc(agent.name)} · ${esc(agent.title)}</option>`).join('');
+    }
+
+    async function load() {
+      $('refreshBtn').disabled = true;
+      if (location.protocol === 'file:') {
+        Object.assign(state, demoData, {demo:true});
+        render();
+        $('connectionLabel').textContent = '演示模式 · 接入 API 后实时同步';
+        $('refreshBtn').disabled = false;
+        return;
+      }
+      try {
+        const [tasks, agents, deliverables, token] = await Promise.all([
+          getJSON('/api/tasks'), getJSON('/api/agents'), getJSON('/api/deliverables'), getJSON('/api/token-usage')
+        ]);
+        Object.assign(state, { tasks, agents, deliverables, token });
+        render();
+        state.demo = false;
+        $('connectionLabel').textContent = `系统在线 · ${token.total?.calls || 0} 次调用`;
+      } catch (error) {
+        Object.assign(state, demoData, {demo:true});
+        render();
+        $('connectionLabel').textContent = '演示模式 · 接入 API 后实时同步';
+      } finally { $('refreshBtn').disabled = false; }
+    }
+
+    $('todayLabel').textContent = new Intl.DateTimeFormat('zh-CN', {year:'numeric', month:'long', day:'numeric', weekday:'long'}).format(new Date());
+    $('refreshBtn').addEventListener('click', load);
+    $('newTaskBtn').addEventListener('click', () => $('taskModal').classList.add('open'));
+    $('cancelTaskBtn').addEventListener('click', () => $('taskModal').classList.remove('open'));
+    $('taskModal').addEventListener('click', event => { if (event.target === $('taskModal')) $('taskModal').classList.remove('open'); });
+    $('taskForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      const submit = event.submitter; submit.disabled = true;
+      try {
+        const payload = { title:$('taskTitle').value.trim(), assignee:Number($('taskAgent').value), priority:$('taskPriority').value, creator:0 };
+        if (state.demo) {
+          const agent = state.agents.find(item => item.id === payload.assignee);
+          state.tasks.unshift({...payload, id:`LOCAL-${Date.now()}`, status:'pending', assigneeName:agent?.title || agent?.name || '待分派', createdAt:new Date().toISOString()});
+          localStorage.setItem('le-dynasty-demo-tasks', JSON.stringify(state.tasks));
+          render();
+        } else {
+          await getJSON('/api/tasks', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+          await load();
+        }
+        $('taskForm').reset(); $('taskModal').classList.remove('open');
+      } catch (error) { alert(`任务下达失败：${error.message}`); }
+      finally { submit.disabled = false; }
+    });
+
+    if (location.protocol !== 'file:') try {
+      const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`);
+      socket.addEventListener('open', () => $('connectionLabel').textContent = '系统在线 · 实时同步');
+      socket.addEventListener('message', event => { try { const message = JSON.parse(event.data); if (message.event?.startsWith('task_')) load(); } catch {} });
+      socket.addEventListener('close', () => $('connectionLabel').textContent = '实时连接已断开');
+    } catch {}
+    load();
+  </script>
+</body>
+</html>
