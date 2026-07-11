@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { EventEmitter } = require('events');
+const { WORKFLOW_METADATA, createTaskContract, createReviewDecision } = require('./governance-model');
 
 const ROLES = [
   { id: 1, key: 'strategist', name: 'Strategy Cabinet', title: 'Decision framing', responsibility: 'Define the decision, constraints, and acceptance criteria.' },
@@ -102,6 +103,9 @@ class GovernanceEngine extends EventEmitter {
   }
 
   updateTask(task, patch) {
+    if (patch.status && patch.status !== task.status) {
+      task.stateHistory.push({ from: task.status, to: patch.status, at: new Date().toISOString() });
+    }
     Object.assign(task, patch, { updatedAt: new Date().toISOString() });
     this.emit('event', { event: 'task_updated', data: { ...task } });
   }
@@ -113,12 +117,14 @@ class GovernanceEngine extends EventEmitter {
       title,
       description: role.responsibility,
       priority: order === 4 ? 'P1' : 'P2',
-      status: 'pending',
+      status: 'assigned',
       assignee: role.id,
       assigneeName: role.name,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      output: ''
+      output: '',
+      contract: createTaskContract(role, role.key === 'editor' ? 'decision_memo' : 'working_note'),
+      stateHistory: [{ from: null, to: 'assigned', at: new Date().toISOString() }]
     };
     this.tasks.unshift(task);
     this.emit('event', { event: 'task_created', data: { ...task } });
@@ -151,12 +157,12 @@ class GovernanceEngine extends EventEmitter {
     return output || fallback;
   }
 
-  async execute(task, role, objective, context, fallback) {
+  async execute(task, role, objective, context, fallback, completionStatus = 'approved') {
     this.updateTask(task, { status: 'in_progress' });
     await new Promise(resolve => setTimeout(resolve, process.env.NODE_ENV === 'test' ? 5 : 450));
     try {
       const output = await this.callRole(role, objective, context, fallback);
-      this.updateTask(task, { status: 'completed', output, completedAt: new Date().toISOString() });
+      this.updateTask(task, { status: completionStatus, output, completedAt: new Date().toISOString() });
       return output;
     } catch (error) {
       this.updateTask(task, { status: 'blocked', error: error.message });
@@ -168,7 +174,7 @@ class GovernanceEngine extends EventEmitter {
     if (this.running) throw new Error('A governance run is already in progress.');
     this.running = true;
     const runId = `RUN-${Date.now()}`;
-    const run = { id: runId, objective, status: 'running', startedAt: new Date().toISOString(), reworks: 0, events: [] };
+    const run = { id: runId, objective, status: 'running', startedAt: new Date().toISOString(), reworks: 0, events: [], metadata: { ...WORKFLOW_METADATA } };
     this.runs.unshift(run);
     this.emit('event', { event: 'run_started', data: { ...run } });
 
@@ -181,22 +187,36 @@ class GovernanceEngine extends EventEmitter {
 
       const frame = await this.execute(strategist, ROLES[0], objective, '', OFFLINE_OUTPUTS.strategist);
       const evidence = await this.execute(research, ROLES[1], objective, frame, OFFLINE_OUTPUTS.researcher);
-      const recommendation = await this.execute(product, ROLES[2], objective, `${frame}\n\n${evidence}`, OFFLINE_OUTPUTS.product);
+      const recommendation = await this.execute(product, ROLES[2], objective, `${frame}\n\n${evidence}`, OFFLINE_OUTPUTS.product, 'awaiting_review');
 
       const rejection = await this.execute(audit, ROLES[3], objective, recommendation, OFFLINE_OUTPUTS.auditor_reject);
+      const rejectionDecision = createReviewDecision('reject', {
+        failedCriteria: ['AC-001'],
+        reasonCodes: ['MISSING_SUCCESS_METRICS'],
+        requiredActions: ['Add measurable MVP criteria.', 'Separate assumptions from verified evidence.']
+      });
       run.reworks = 1;
-      this.updateTask(product, { status: 'in_progress', review: rejection, rework: 1 });
+      this.updateTask(product, { status: 'rejected', review: rejection, reviewDecision: rejectionDecision, reviewDecisions: [rejectionDecision], rework: 1 });
+      this.updateTask(product, { status: 'rework_in_progress' });
       const revised = await this.callRole(ROLES[2], objective, `${recommendation}\n\n${rejection}`, `${recommendation}\n\n${OFFLINE_OUTPUTS.editor}`);
-      this.updateTask(product, { status: 'completed', output: revised, completedAt: new Date().toISOString() });
+      this.updateTask(product, { status: 'awaiting_review', output: revised });
 
       const approval = await this.callRole(ROLES[3], objective, revised, OFFLINE_OUTPUTS.auditor_approve);
-      this.updateTask(audit, { status: 'completed', output: `${rejection}\n\n${approval}`, verdict: 'approved_after_rework' });
-      const finalBody = await this.execute(editor, ROLES[4], objective, `${revised}\n\n${approval}`, OFFLINE_OUTPUTS.editor);
+      const approvalDecision = createReviewDecision('approve', { reviewer: 'auditor', reasonCodes: ['CRITERIA_SATISFIED'] });
+      this.updateTask(product, { status: 'approved', reviewDecision: approvalDecision, reviewDecisions: [...product.reviewDecisions, approvalDecision], completedAt: new Date().toISOString() });
+      this.updateTask(audit, { status: 'approved', output: `${rejection}\n\n${approval}`, reviewDecision: approvalDecision, verdict: 'approved_after_rework' });
+      const finalBody = await this.execute(editor, ROLES[4], objective, `${revised}\n\n${approval}`, OFFLINE_OUTPUTS.editor, 'delivered');
 
       const report = `# AI Presentation Product Decision Report\n\n**Run:** ${runId}  \n**Objective:** ${objective}  \n**Mode:** ${process.env.DEEPSEEK_API_KEY ? 'DeepSeek' : 'Offline deterministic demo'}  \n**Review:** approved after one rework\n\n${finalBody}\n\n---\n\n## Audit trail\n\n${rejection}\n\n${approval}\n`;
       const filename = `${runId.toLowerCase()}-decision-report.md`;
       fs.writeFileSync(path.join(this.deliverablesDir, filename), report, 'utf8');
-      Object.assign(run, { status: 'completed', completedAt: new Date().toISOString(), filename, review: 'approved_after_rework' });
+      Object.assign(run, {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        filename,
+        review: 'approved_after_rework',
+        artifact: { type: 'decision_memo', format: 'markdown', path: `deliverables/${filename}`, status: 'delivered' }
+      });
       this.emit('event', { event: 'run_completed', data: { ...run } });
       return { ...run };
     } catch (error) {
@@ -210,4 +230,3 @@ class GovernanceEngine extends EventEmitter {
 }
 
 module.exports = { GovernanceEngine, ROLES, OFFLINE_OUTPUTS };
-

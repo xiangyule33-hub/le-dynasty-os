@@ -22,7 +22,13 @@ test('offline workflow executes five roles, reworks once, and writes an approved
     assert.equal(run.reworks, 1);
     assert.equal(run.review, 'approved_after_rework');
     assert.equal(engine.tasks.length, 5);
-    assert.ok(engine.tasks.every(task => task.status === 'completed'));
+    assert.deepEqual(engine.tasks.map(task => task.status), ['delivered', 'approved', 'approved', 'approved', 'approved']);
+    assert.equal(engine.tasks.find(task => task.assignee === 3).contract.acceptanceContract.criteria[0].id, 'AC-001');
+    assert.equal(engine.tasks.find(task => task.assignee === 3).reviewDecision.verdict, 'approve');
+    assert.deepEqual(engine.tasks.find(task => task.assignee === 3).reviewDecisions.map(item => item.verdict), ['reject', 'approve']);
+    assert.ok(engine.tasks.find(task => task.assignee === 3).stateHistory.some(item => item.to === 'rejected'));
+    assert.deepEqual(run.metadata, { workflowType: 'reference', domain: 'product_decision', generality: 'fixed_demo' });
+    assert.equal(run.artifact.status, 'delivered');
     assert.ok(events.includes('run_started'));
     assert.ok(events.includes('run_completed'));
 

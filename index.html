@@ -109,6 +109,10 @@
     .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--jade); }
     .status.blocked { color: var(--cinnabar); }
     .status.blocked::before { background: var(--cinnabar); }
+    .status.rejected, .status.escalated { color: var(--cinnabar); }
+    .status.rejected::before, .status.escalated::before { background: var(--cinnabar); }
+    .status.awaiting_review, .status.awaiting_approval { color: var(--amber); }
+    .status.awaiting_review::before, .status.awaiting_approval::before { background: var(--amber); }
     .status.pending { color: var(--amber); }
     .status.pending::before { background: var(--amber); }
     .deliverables { padding: 4px 16px 10px; }
@@ -271,20 +275,20 @@
       <div class="content">
         <section class="overview">
           <div class="panel">
-            <div class="panel-head"><h3>今日决策</h3><small>按阻塞时间与优先级排序</small></div>
+            <div class="panel-head"><h3>创始人待决队列</h3><small>只显示需要人工判断的事项</small></div>
             <div class="decision-list" id="decisions"><div class="empty">正在整理奏报...</div></div>
           </div>
           <div class="panel">
             <div class="panel-head"><h3>运营摘要</h3><small>实时</small></div>
             <div class="metric-grid">
               <div class="metric"><span>任务总数</span><strong id="metricTotal">—</strong></div>
-              <div class="metric"><span>AI 员工</span><strong id="metricAgents">—</strong></div>
-              <div class="metric"><span>已经完成</span><strong id="metricDone">—</strong></div>
-              <div class="metric danger"><span>风险阻塞</span><strong id="metricBlocked">—</strong></div>
+              <div class="metric"><span>待独立审核</span><strong id="metricReview">—</strong></div>
+              <div class="metric"><span>已批准交付</span><strong id="metricDone">—</strong></div>
+              <div class="metric danger"><span>异常与升级</span><strong id="metricBlocked">—</strong></div>
             </div>
           </div>
           <div class="panel risk-panel">
-            <div class="panel-head"><h3>风险与阻塞</h3><small id="riskCount">—</small></div>
+            <div class="panel-head"><h3>拒绝、阻塞与升级</h3><small id="riskCount">—</small></div>
             <div class="risk-list" id="risks"><div class="empty">正在检查...</div></div>
           </div>
         </section>
@@ -353,7 +357,12 @@
       return broken > 2 ? '历史数据编码异常（需检查源数据）' : text;
     };
     const fmtDate = value => value ? new Intl.DateTimeFormat('zh-CN', {month:'numeric', day:'numeric'}).format(new Date(value)) : '—';
-    const statusName = { pending:'待执行', in_progress:'执行中', completed:'已完成', blocked:'已阻塞' };
+    const statusName = {
+      proposed:'待提案', awaiting_approval:'待批准', assigned:'已分派', pending:'待执行',
+      in_progress:'执行中', awaiting_review:'待审核', rejected:'已拒绝',
+      rework_in_progress:'返工中', approved:'已批准', delivered:'已交付',
+      completed:'已完成', blocked:'已阻塞', escalated:'已升级'
+    };
 
     async function waitForRunCompletion(button) {
       for (let attempt = 0; attempt < 60; attempt += 1) {
@@ -377,26 +386,28 @@
     }
 
     function render() {
-      const blocked = state.tasks.filter(t => t.status === 'blocked');
-      const pending = state.tasks.filter(t => t.status === 'pending');
-      const completed = state.tasks.filter(t => t.status === 'completed');
+      const reviewQueue = state.tasks.filter(t => ['awaiting_approval', 'awaiting_review'].includes(t.status));
+      const attentionQueue = state.tasks.filter(t => ['awaiting_approval', 'awaiting_review', 'rejected', 'blocked', 'escalated'].includes(t.status));
+      const risks = state.tasks.filter(t => ['rejected', 'blocked', 'escalated'].includes(t.status));
+      const pending = state.tasks.filter(t => ['assigned', 'pending', 'in_progress', 'rework_in_progress'].includes(t.status));
+      const completed = state.tasks.filter(t => ['approved', 'delivered', 'completed'].includes(t.status));
       $('metricTotal').textContent = state.tasks.length;
-      $('metricAgents').textContent = state.agents.length;
+      $('metricReview').textContent = reviewQueue.length;
       $('metricDone').textContent = completed.length;
-      $('metricBlocked').textContent = blocked.length;
-      $('riskCount').textContent = `${blocked.length} 项`;
-      $('taskSummary').textContent = `${pending.length} 待执行 · ${blocked.length} 阻塞`;
+      $('metricBlocked').textContent = risks.length;
+      $('riskCount').textContent = `${risks.length} 项`;
+      $('taskSummary').textContent = `${pending.length} 执行中 · ${reviewQueue.length} 待审核`;
       $('deliverableCount').textContent = `${state.deliverables.length} 件`;
 
-      const decisions = [...blocked].sort((a,b) => (a.priority||'P9').localeCompare(b.priority||'P9') || new Date(a.createdAt)-new Date(b.createdAt)).slice(0,3);
+      const decisions = [...attentionQueue].sort((a,b) => (a.priority||'P9').localeCompare(b.priority||'P9') || new Date(a.createdAt)-new Date(b.createdAt)).slice(0,3);
       $('decisions').innerHTML = decisions.length ? decisions.map((task, index) => `
         <div class="decision">
           <span class="decision-index">${index + 1}</span>
           <div><strong title="${esc(clean(task.title))}">${esc(clean(task.title))}</strong><p>${esc(clean(task.description || '需要确认下一步处理方式'))}</p></div>
           <div class="decision-meta">${esc(task.priority || 'P2')}<br>${esc(task.assigneeName || '待分派')}</div>
-        </div>`).join('') : '<div class="empty">今天没有需要裁决的阻塞任务</div>';
+        </div>`).join('') : '<div class="empty">当前没有需要创始人判断的事项</div>';
 
-      $('risks').innerHTML = decisions.length ? decisions.map(task => `
+      $('risks').innerHTML = risks.length ? risks.slice(0,3).map(task => `
         <div class="risk"><span class="risk-dot"></span><span title="${esc(clean(task.title))}">${esc(clean(task.title))}</span><span class="tag">需处理</span></div>`).join('') : '<div class="empty">系统暂无阻塞</div>';
 
       const working = state.tasks.slice(0,7);
@@ -413,7 +424,7 @@
       $('flowSteps').innerHTML = roleSteps.map(([label, assignee, icon]) => {
         const task = state.tasks.find(item => item.assignee === assignee);
         const status = task ? (statusName[task.status] || task.status) : '待启动';
-        return `<div class="flow-step ${task?.status === 'completed' ? 'done' : ''}"><div class="flow-icon">${icon}</div><strong>${label}</strong><span>${status}</span></div>`;
+        return `<div class="flow-step ${['approved','delivered','completed'].includes(task?.status) ? 'done' : ''}"><div class="flow-icon">${icon}</div><strong>${label}</strong><span>${status}</span></div>`;
       }).join('');
 
       $('taskAgent').innerHTML = state.agents.map(agent => `<option value="${agent.id}">${esc(agent.name)} · ${esc(agent.title)}</option>`).join('');
